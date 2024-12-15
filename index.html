@@ -152,6 +152,7 @@
       <model id="knn">KNN</model>
       <model id="log">LOG</model>
       <model id="lda" onclick="lda()">LDA</model>
+      <model id="qda" onclick="qda()">QDA</model>
     </models>
 
     <panel style="position: absolute; top: 0; right: 0; width: 25%">
@@ -703,10 +704,10 @@ function lda() {
   pi_s = n_k.map(nk => nk/X.length);
 
   S = [[0,0], [0,0]];
-  for (let i in X) {
-    for (let j in Classes) {
-      if (Outputs[i] == Classes[j]) {
-        S = Matrix.add_matrices(S, Matrix.multiply_matrices(Matrix.transpose([[X[i] - mu_s[j][0], Y[i] - mu_s[j][1]]]), [[X[i] - mu_s[j][0], Y[i] - mu_s[j][1]]]));
+  for (let k in Classes) {
+    for (let i in X) {
+      if (Outputs[i] == Classes[k]) {
+        S = Matrix.add_matrices(S, Matrix.multiply_matrices(Matrix.transpose([[X[i] - mu_s[k][0], Y[i] - mu_s[k][1]]]), [[X[i] - mu_s[k][0], Y[i] - mu_s[k][1]]]));
       }
     }
   }
@@ -738,6 +739,74 @@ function lda_prediction(x) {
   }
   return pred_y;
 }
+
+
+
+
+//  LINEAR DISCRIMINANT ANALYSIS  --------------------------------------------
+
+let S_s; let S_inv_s;
+
+function qda() {
+  mu_s = []; n_k = [];
+  for (let i in Classes) {
+    mu_s.push([0, 0]);
+    n_k.push(0);
+  }
+
+  for (let i in X) {
+    for (let j in Classes) {
+      if (Outputs[i] == Classes[j]) {
+        mu_s[j][0] += X[i];
+        mu_s[j][1] += Y[i];
+        n_k[j]++;
+      }
+    }
+  }
+  mu_s = mu_s.map((mu, ind) => mu.map(total => total/n_k[ind]));
+  pi_s = n_k.map(nk => nk/X.length);
+
+  S_s = [];
+  for (let k in Classes) {
+    S = [[0,0], [0,0]];
+    for (let i in X) {
+      if (Outputs[i] == Classes[k]) {
+        //  (xi - mu) . (xi - mu)'  , (2x1) column vectors are subttracted here
+        S = Matrix.add_matrices(S, Matrix.multiply_matrices(Matrix.transpose([[X[i] - mu_s[k][0], Y[i] - mu_s[k][1]]]), [[X[i] - mu_s[k][0], Y[i] - mu_s[k][1]]]));
+      }
+    }
+    S = S.map(r => r.map(c => c/(n_k[k] - 1)));
+    S_s.push(S);
+  }
+    
+
+
+  S_inv_s = S_s.map(mat => Matrix.inverse(mat));
+
+}
+
+
+function delta_qda(k, x) {
+  let xT  = [x];
+  let u = Matrix.multiply_matrices(Matrix.multiply_matrices(xT, S_inv_s[k]), Matrix.transpose([mu_s[k]]));
+  let v = Matrix.multiply_matrices(Matrix.multiply_matrices([mu_s[k]], S_inv_s[k]), Matrix.transpose([mu_s[k]]));
+  let w = Math.log(pi_s[k]);
+  return u[0][0] - v[0][0]/2 + w;
+}
+
+function qda_prediction(x) {
+  let dels = [];
+  for (let i in Classes) {
+    dels.push(delta_qda(i, x));
+  }
+  let m = Math.max(...dels);
+  let pred_y;
+  for (let i in dels) {
+    if (dels[i] == m) pred_y = [Classes[i], m];
+  }
+  return pred_y;
+}
+
 
 
 //  --------------------------------------------------------------------------
@@ -786,6 +855,13 @@ function hoverPredict(ev) {
         document.querySelector('pointerlocation').style.top = ev.clientY + 'px';
         document.querySelector('pointerlocation').style.left = ev.clientX + 'px';
         document.querySelector('pointerlocation').style.background = colors[Classes.indexOf(LDA_predictionResult[0])];
+    } else if (chosenModel == 'qda') {
+        //      QDA PREDICTOR ____________
+        let QDA_predictionResult = qda_prediction([new_x, new_y]);
+        predicted_span.innerHTML = `[${new_x}, ${new_y}] : <span style="color: ${colors[Classes.indexOf(QDA_predictionResult[0])]}">${QDA_predictionResult.toString()}</span>`;
+        document.querySelector('pointerlocation').style.top = ev.clientY + 'px';
+        document.querySelector('pointerlocation').style.left = ev.clientX + 'px';
+        document.querySelector('pointerlocation').style.background = colors[Classes.indexOf(QDA_predictionResult[0])];
     }
 }
 

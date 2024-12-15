@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" sizes="192x192" href="https://w7.pngwing.com/pngs/875/101/png-transparent-deep-learning-artificial-neural-network-machine-learning-convolutional-neural-network-neuron-tynagh-network-systems-loughrea-computer-network-angle-symmetry.png">
+    <title>Classification Models</title>
+    <script src="https://raunak1089.github.io/all_scripts/disablescroll.js"></script>
+    <script src="https://raunak1089.github.io/all_scripts/touch_functions.js"></script>
+    <script src="https://raunak1089.github.io/all_scripts/stat_script.js"></script>
+    <script src="https://raunak1089.github.io/all_scripts/fontawesome.js"></script>
+    <script
+      id="MathJax-script"
+      async
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+    ></script>
+  </head>
+  <style>
+    @import url("https://fonts.googleapis.com/css?family=Comfortaa:400,500,600,700&display=swap");
+    @import url("https://fonts.googleapis.com/css?family=Poppins:400,500,600,700&display=swap");
+    @import url("https://fonts.googleapis.com/css?family=Lora:400,500,600,700&display=swap");
+    @import url("https://fonts.googleapis.com/css?family=Montserrat:400,500,600,700&display=swap");
+    @import url("https://fonts.googleapis.com/css?family=Outfit:400,500,600,700&display=swap");
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Comfortaa;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    buttons button {
+      margin: auto 3%;
+      font-size: 1.2em;
+      padding: 3px 7px;
+    }
+
+
+    details {
+      background: white;
+      width: fit-content;
+      border-radius: 10px;
+    }
+
+    pointerlocation {
+      position: absolute; 
+      width: 2em; 
+      height: 2em; 
+      border-radius: 50%;
+    }
+
+    models {
+      display: flex;
+      position: absolute;
+      left: 45%;
+      width: 45%;
+      transform: translateX(-50%);
+      top: 5px;
+      height: 4em;
+      justify-content: space-around;
+    }
+    models model {
+      background: white;
+      font-size: 1.5em;
+      border-radius: 15px;
+      box-shadow: inset 0px 0px 5px 2px;
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      transition: 0.2s ease;
+      cursor: pointer;
+    }
+    models model:hover {
+      background: #eee;
+      box-shadow: 0px 0px 6px;
+    }
+    models model.selected {
+      background: #99ff00;
+    }
+
+    svg#myCanvas {
+      position: absolute;
+      background: #eee;
+      z-index: -1;
+      top: 0;
+    }
+
+    svg svg {
+      position: absolute;
+      background: none;
+    }
+
+    text {
+      user-select: none;
+    }
+
+    #x-axis line,
+    #y-axis line {
+      stroke: black;
+      stroke-width: 1;
+    }
+
+    line#subaxes {
+      stroke: #aaa;
+      stroke-width: 1;
+    }
+
+    #x-axis text,
+    #y-axis text {
+      fill: black;
+      fill-opacity: 0.5;
+      font-family: "Arial";
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    #points text {
+      font-family: "Arial";
+      font-size: 20px;
+      fill: black;
+    }
+
+    #pp polyline {
+      fill: none;
+      stroke: red;
+      stroke-width: 1.5;
+    }
+    #pp polyline:hover {
+      stroke-width: 3;
+    }
+  </style>
+  <body>
+    <training>
+      <span><l_val></l_val></span>
+      <br />
+      <span><ep_val></ep_val></span>
+      <br />
+    </training>
+
+    <details>
+      <summary
+        style="cursor: pointer"
+      >
+        Show parameters
+      </summary>
+      <div id="matrix"></div>
+    </details>
+
+    <models>
+      <model id="knn">KNN</model>
+      <model id="log">LOG</model>
+      <model id="lda" onclick="lda()">LDA</model>
+    </models>
+
+    <panel style="position: absolute; top: 0; right: 0; width: 25%">
+      <buttons
+        style="display: flex; flex-direction: row; justify-content: flex-end"
+      >
+        <button onclick="initiate();" title="RETRAIN">
+          <i class="fa-solid fa-rotate-right"></i>
+        </button>
+        <button onclick="clearInterval(iters);console.log('Done with ' + n_iters + ' iterations');" title="STOP">
+          <i class="fa-solid fa-pause"></i>
+        </button>
+        <button onclick="go()" title="GO">
+          <i class="fa-solid fa-play"></i>
+        </button>
+        <button onclick="clear_all()" title="CLEAR">
+          <i class="fa-solid fa-stop"></i>
+        </button>
+        <button onclick="loadClipboardData()" title="LOAD CLIPBOARD DATA">
+          <i class="fa-regular fa-clipboard"></i>
+        </button>
+      </buttons>
+      <input
+        style="width: 100%; height: 1px"
+        type="range"
+        min="0"
+        max="0.2"
+        step="0.0001"
+        value="0.001"
+        oninput="
+        LR = this.value;
+        document.querySelector('panel span').innerText='LR : '+LR;
+        "
+      />
+      <br />
+      <span>LR : 0.001</span>
+
+      <div style="background: white;">
+        <table id="colorcodes"></table>
+        <input type="checkbox" name="predmode" id="predmode"><label for="predmode">Hover and predict</label>
+        <span id="predicted"></span>
+      </div>
+    </panel>
+    <svg id="myCanvas" height="500" width="500">
+      <svg id="x-axis" height="500" width="500">
+        <line x1="0" y1="250" x2="500" y2="250" />
+      </svg>
+
+      <svg id="y-axis" height="500" width="500">
+        <line x1="250" y1="0" x2="250" y2="500" />
+      </svg>
+
+      <svg id="points" height="500" width="500"></svg>
+
+      <svg id="pp" height="500" width="500"></svg>
+    </svg>
+
+    <pointerlocation></pointerlocation>
+
+  </body>
+  <script>
+    var canvas = document.getElementById("myCanvas");
+    let stopped = false;
+    let canvas_width, canvas_height;
+
+    let X = [];
+    let Y = [];
+    let Outputs = [];
+    let Classes = [];
+    let colors = [];
+
+    let n;
+    let n_epochs;
+
+    let originx;
+    let originy;
+
+    function setDim(given_w, given_h) {
+      for (c of document.querySelectorAll("svg")) {
+        c.width.baseVal.value = given_w;
+        c.height.baseVal.value = given_h;
+      }
+      originx = given_w / 2;
+      originy = given_h / 2;
+
+      canvas_width = given_w;
+      canvas_height = given_h;
+    }
+
+    setDim(window.innerWidth, window.innerHeight);
+
+    window.addEventListener("resize", () => {
+      setDim(window.innerWidth, window.innerHeight);
+      draw();
+    });
+
+    let scale = 150;
+
+    function draw_axes() {
+      let x_axis = document.querySelector("#x-axis");
+      let y_axis = document.querySelector("#y-axis");
+      x_axis.innerHTML = `<line x1="0" y1="${originy}" x2="${canvas_width}" y2="${originy}" />`;
+      y_axis.innerHTML = `<line x1="${originx}" y1="0" x2="${originx}" y2="${canvas_height}" />`;
+
+      let step = Math.pow(2, Math.floor(Math.log2(100 / scale)));
+
+      //  MAIN X AXIS
+      for (
+        let i = floor(step, (-1 * originx) / scale);
+        i <= floor(step, (canvas.width.baseVal.value - originx) / scale);
+        i += step
+      ) {
+        x_axis.innerHTML += `<line x1="${originx + scale * i}" y1="${
+          originy - 5
+        }" x2="${originx + scale * i}" y2="${originy + 5}" />`;
+        if (i != 0) {
+          x_axis.innerHTML += `<text x="${originx + scale * i}" 
+          y="${originy + 17}">${i}</text>`;
+          let thisText = x_axis.querySelector("text:last-child");
+          let width = thisText.getBBox().width;
+          thisText.setAttribute("x", thisText.getAttribute("x") - width / 2);
+        }
+      }
+
+      // SUB X AXES
+      for (
+        let i = floor(step/2, (-1 * originx) / scale);
+        i <= floor(step/2, (canvas.width.baseVal.value - originx) / scale);
+        i += step/2
+      ) {
+        x_axis.innerHTML += `<line id="subaxes" x1="${originx + scale * i}" 
+        y1="0" x2="${originx + scale * i}" y2="${canvas_height}" />`;
+      }
+
+      //  MAIN Y AXIS
+      for (
+        let i = floor(step, originy / scale);
+        i >= -1 * floor(step, (canvas.height.baseVal.value - originy) / scale);
+        i -= step
+      ) {
+        y_axis.innerHTML += `<line x1="${originx - 5}" y1="${
+          originy - scale * i
+        }" x2="${originx + 5}" y2="${originy - scale * i}" />`;
+        if (i != 0) {
+          y_axis.innerHTML += `<text x="${originx - 7}" 
+          y="${originy - scale * i + 5}">${i}</text>`;
+          let thisText = y_axis.querySelector("text:last-child");
+          let width = thisText.getBBox().width;
+          thisText.setAttribute("x", thisText.getAttribute("x") - width);
+        }
+      }
+
+      // SUB Y AXES
+      for (
+        let i = floor(step/2, originy / scale);
+        i >= -1 * floor(step/2, (canvas.height.baseVal.value - originy) / scale);
+        i -= step/2
+      ) {
+        y_axis.innerHTML += `<line id="subaxes" x1="0" y1="${originy - scale * i}" 
+        x2="${canvas_width}" y2="${originy - scale * i}" />;`;
+      }
+
+      //  ZERO
+      y_axis.innerHTML += `<text x="${originx - 12}" y="${
+        originy + 15
+      }">0</text>`;
+    }
+
+    function draw() {
+      document.querySelector("#points").innerHTML = "";
+      for (let i in X) {
+        draw_point(X[i], Y[i], color = colors[Classes.indexOf(Outputs[i])], label = false);
+      }
+
+
+      draw_axes();
+/*
+      let points_str = "";
+      for (
+        let x = -originx / scale;
+        x <= (canvas_width - originx) / scale;
+        x += 1 / scale
+      ) {
+        points_str += `${scale * x + originx},${originy - scale * f(x)} `;
+      }
+
+      document.querySelector("#pp").innerHTML = `<polyline
+          points="${points_str}"
+        />`;
+*/
+    }
+
+    function clear_all() {
+      for (c of document.querySelectorAll("svg svg")) {
+        c.innerHTML = "";
+      }
+      draw_axes();
+      X = [];
+      Y = [];
+      n = 0;
+      initiate();
+    }
+
+    let dragged;
+    function plot(event) {
+      if (!dragged) {
+        let rect = canvas.getBoundingClientRect();
+        let selectedx = event.clientX - rect.left;
+        let selectedy = event.clientY - rect.top;
+
+        let new_x = round((selectedx - originx) / scale, 1);
+        let new_y = round((originy - selectedy) / scale, 1);
+        X.push(new_x);
+        Y.push(new_y);
+
+        draw_point(new_x, new_y);
+
+        n = X.length;
+      }
+    }
+
+    canvas.addEventListener("click", plot);
+
+    function draw_point(x, y, color = "blue", label = true, prec = 3) {
+      let myPoint = `
+      <circle cx="${scale * x + originx}" cy="${originy - scale * y}" 
+      r="5" fill="${color}" />`;
+
+      if (label) {
+        myPoint += `<text x="${scale * x + originx + 10}" y="${
+          originy - scale * y + 20
+        }">(${round(x, prec)}, ${round(y, prec)})</text>`;
+      }
+      document.querySelector("#points").innerHTML += myPoint;
+    }
+
+    //  GIVE THE ZOOM FUNCTIONS TO GRAPH ______
+
+    // MAKE DRAGGING FUNCTION FOR PC
+
+    var dragValue, xv_pc, yv_pc;
+
+    canvas.onmousedown = function (e) {
+      dragValue = canvas;
+      dragged = false;
+      xv_pc = e.clientX - originx;
+      yv_pc = e.clientY - originy;
+    };
+
+    canvas.onwheel = function (e) {
+      e.preventDefault();
+      if (scale - e.deltaY / 10 >= 0) {
+        scale -= round(e.deltaY / 10);
+      }
+
+      draw();
+    };
+
+    document.onmouseup = function () {
+      dragValue = null;
+    };
+
+    document.onmousemove = function (ev) {
+      if (dragValue == canvas) {
+        if ((ev.clientX - xv_pc) * (ev.clientY - yv_pc) != 0) {
+          dragged = true;
+        }
+        originx = ev.clientX - xv_pc;
+        originy = ev.clientY - yv_pc;
+        draw();
+      }
+    };
+
+    // MAKE DRAGGING FUNCTION FOR ANDROID
+
+    let xv_phn, yv_phn, ini_dist;
+
+    canvas.ontouchstart = function (ev) {
+      dragged = false;
+      var e = ev.targetTouches[0];
+
+      xv_phn = e.clientX - originx;
+      yv_phn = e.clientY - originy;
+
+      try {
+        ini_dist = two_touch_distance(ev, 1, 20);
+      } catch (err) {}
+
+      disableScroll();
+    };
+
+    canvas.ontouchmove = function (ev) {
+      try {
+        fin_dist = two_touch_distance(ev, 1, 20);
+        scale = scale * (fin_dist / ini_dist) ** 0.1;
+      } catch (err) {}
+
+      originx = ev.touches[0].clientX - xv_phn;
+      originy = ev.touches[0].clientY - yv_phn;
+
+      draw();
+    };
+
+    document.ontouchend = function () {
+      enableScroll();
+    };
+
+    //  ______________________________________________________________________
+  </script>
+
+<script>
+
+let predicted_span = document.querySelector('#predicted');
+let predmode = document.querySelector('#predmode');
+
+function getRandomRGB() {
+    const values = [50, 70, 90, 110, 130, 150, 170, 190, 210, 230, 250];
+    const getRandomValue = () => values[Math.floor(Math.random() * values.length)];
+    const r = getRandomValue();
+    const g = getRandomValue();
+    const b = getRandomValue();
+    
+    return `rgb(${r}, ${g}, ${b})`;
+}
+
+
+async function loadClipboardData() {
+    X = []; 
+    Y = []; 
+    Outputs = [];
+    Classes = [];
+    colors = [];
+    
+    let str = await navigator.clipboard.readText();
+    str = str.trim(); 
+    let rows = str.split('\n'); 
+
+    for (let r of rows) {
+        let row = r.trim().split('\t'); 
+        X.push(Number(row[0])); 
+        Y.push(Number(row[1])); 
+        Outputs.push(row[2]); 
+    }
+
+    Classes = [...new Set(Outputs)];
+
+    for (let i in Classes) {
+      colors.push(getRandomRGB());
+    }
+
+    for (let i in X) {
+        draw_point(X[i], Y[i], color = colors[Classes.indexOf(Outputs[i])], label = false);
+    }
+
+    document.querySelector('#colorcodes').innerHTML = '';
+    let tablehtml = '';
+    for (let i in Classes) {
+      tablehtml += `<tr><td style='width: 1.5em; background: ${colors[i]}'></td><td>${Classes[i]}</td></tr>`;
+    }
+    document.querySelector('#colorcodes').innerHTML = tablehtml;
+
+
+}
+
+
+//  KNN PREDICTION  __________________________________________________
+
+function knn_prediction(obs_x, K) {
+    function dist(vect_x, vect_y) {
+        if (vect_x.length !== vect_y.length) {
+            return null;
+        } else {
+            let sq_norm = 0;
+            for (let i = 0; i < vect_x.length; i++) {
+                sq_norm += Math.pow(vect_x[i] - vect_y[i], 2);
+            }
+            return Math.sqrt(sq_norm);
+        }
+    }
+
+    let dist_from_obs_x = [];
+    for (let i in X) {
+        dist_from_obs_x.push(dist(obs_x, [X[i], Y[i]]));
+    }
+
+    let sorted_index = Array(X.length).fill(0);
+    for (let i in X) {
+        for (let j in X) {
+            if (dist_from_obs_x[j] < dist_from_obs_x[i]) {
+                sorted_index[i] += 1;
+            }
+        }
+    }
+    for (let i in X) {
+        let x = i;
+        for (let j in X) {
+            if (sorted_index[j] == i) {
+                sorted_index[j] = Number(x);
+                x++;
+            }
+        }
+    }
+    // console.log(sorted_index);
+
+    let nearest_Y = [];
+    for (let i=0; i<X.length; i++) {
+        nearest_Y.push(Outputs[sorted_index.indexOf(i)]);
+    }
+
+    let probs = [];
+    for (let y of Classes) {
+        probs.push(nearest_Y.slice(0, K).filter(v => v == y).length / K);
+    }
+    // console.log(probs);
+
+    let max_prob = Math.max(...probs);
+    return [Classes[probs.indexOf(max_prob)], max_prob];
+}
+
+
+//  LOGISTIC REGRESSION  __________________________________________________
+
+let n_iters = 0; let iters;
+function Derivative(func, values, argIndex) {
+  const h = 10 ** -8;
+  const argsPlusH = [...values];
+  const argsMinusH = [...values];
+  argsPlusH[argIndex] += h;
+  // argsMinusH[argIndex] -= h;
+
+  const funcPlusH = func(argsPlusH);
+  const funcMinusH = func(argsMinusH);
+
+  let deriv = (funcPlusH - funcMinusH) * 10 ** 8;
+  let rounded = round(deriv, 4);
+  return deriv;
+}
+
+function MatrixtoLinear(coeffs_mat) {
+  let lin_vect = [];
+  for (let ctgry of coeffs_mat) {
+    for (let coef of ctgry) {lin_vect.push(coef);}
+  }
+  return lin_vect;
+}
+
+function LineartoMatrix(array) {
+  let coeffs_mat = [];
+  let ind = 0;
+  for (let i in Classes) {
+    coeffs_mat.push([]);
+    for (let j = 0; j < 3; j++) {
+      coeffs_mat[i].push(array[ind]);
+      ind++;
+    }
+  }
+  return coeffs_mat;
+}
+
+let coeffs = []; let LR = 0.0001;
+function initiate() {
+  coeffs = [];
+  for (let i in Classes) {
+    coeffs.push([0, 0, 0])
+  }
+}
+
+function pK(coeffs, k, x) {
+  // Take X as x = [x1, x2] and return P(Y = k | X = x)
+  // Here k is the index of class, k = 0, 1, 2, etc.
+  let xT  = [[1, ...x]];
+  let xTbK = Matrix.multiply_matrices(xT, Matrix.transpose([coeffs[k]]));
+
+  let sumExps = 0;
+  for (let i in Classes) {
+    sumExps += Math.exp(Matrix.multiply_matrices(xT, Matrix.transpose([coeffs[i]])));
+  }
+
+  return Math.exp(xTbK) / sumExps;
+}
+
+function log_likelihood(coeff_vector) {
+  let coeff_matrix = LineartoMatrix(coeff_vector);
+  let l = 0;
+  for (let i in X) {
+    for (let j in Classes) {
+      if (Outputs[i] == Classes[j]) {l += Math.log(pK(coeff_matrix, j, [X[i], Y[i]]))}
+    }
+  }
+  return l;
+}
+
+function update_parameters() {
+  let parameters = MatrixtoLinear(coeffs);
+  for (let i in parameters) {
+    parameters[i] += Derivative(log_likelihood, parameters, i) * LR;
+  }
+  coeffs = LineartoMatrix(parameters);
+  update_matrix_latex();
+}
+
+function go() {
+  initiate();
+  iters = setInterval(() => {
+    update_parameters();
+    document.querySelector("l_val").innerText = 'log likelihood = ' + log_likelihood(MatrixtoLinear(coeffs));
+
+    n_iters++;
+    document.querySelector('ep_val').innerText = n_iters + ' epochs';
+    
+  }, 50);
+}
+
+function logistic_probabilities(x) {
+  let probs = [];
+  for (let i in Classes) {
+    probs.push(pK(coeffs, i, x));
+  }
+  let m = Math.max(...probs);
+  let pred_y;
+  for (let i in probs) {
+    if (probs[i] == m) pred_y = [Classes[i], m];
+  }
+  return pred_y;
+}
+
+
+//  LINEAR DISCRIMINANT ANALYSIS  --------------------------------------------
+
+let mu_s; let S; let n_k; let pi_s; let S_inv;
+
+function lda() {
+  mu_s = []; n_k = [];
+  for (let i in Classes) {
+    mu_s.push([0, 0]);
+    n_k.push(0);
+  }
+
+  for (let i in X) {
+    for (let j in Classes) {
+      if (Outputs[i] == Classes[j]) {
+        mu_s[j][0] += X[i];
+        mu_s[j][1] += Y[i];
+        n_k[j]++;
+      }
+    }
+  }
+  mu_s = mu_s.map((mu, ind) => mu.map(total => total/n_k[ind]));
+  pi_s = n_k.map(nk => nk/X.length);
+
+  S = [[0,0], [0,0]];
+  for (let i in X) {
+    for (let j in Classes) {
+      if (Outputs[i] == Classes[j]) {
+        S = Matrix.add_matrices(S, Matrix.multiply_matrices(Matrix.transpose([[X[i] - mu_s[j][0], Y[i] - mu_s[j][1]]]), [[X[i] - mu_s[j][0], Y[i] - mu_s[j][1]]]));
+      }
+    }
+  }
+
+  S = S.map(r => r.map(c => c/(X.length - Classes.length)));
+
+  S_inv = Matrix.inverse(S);
+
+}
+
+
+function delta(k, x) {
+  let xT  = [x];
+  let u = Matrix.multiply_matrices(Matrix.multiply_matrices(xT, S_inv), Matrix.transpose([mu_s[k]]));
+  let v = Matrix.multiply_matrices(Matrix.multiply_matrices([mu_s[k]], S_inv), Matrix.transpose([mu_s[k]]));
+  let w = Math.log(pi_s[k]);
+  return u[0][0] - v[0][0]/2 + w;
+}
+
+function lda_prediction(x) {
+  let dels = [];
+  for (let i in Classes) {
+    dels.push(delta(i, x));
+  }
+  let m = Math.max(...dels);
+  let pred_y;
+  for (let i in dels) {
+    if (dels[i] == m) pred_y = [Classes[i], m];
+  }
+  return pred_y;
+}
+
+
+//  --------------------------------------------------------------------------
+
+
+
+
+for (let modelBox of document.querySelectorAll('models model')) {
+  modelBox.addEventListener('click', () => {
+    for (let mbox of document.querySelectorAll('models model')) {
+      mbox.classList.remove('selected');
+    }
+    modelBox.classList.add('selected');
+  })
+}
+
+
+function hoverPredict(ev) {
+    let rect = canvas.getBoundingClientRect();
+    let selectedx = ev.clientX - rect.left;
+    let selectedy = ev.clientY - rect.top;
+
+    let new_x = round((selectedx - originx) / scale, 1);
+    let new_y = round((originy - selectedy) / scale, 1);
+
+    let chosenModel = document.querySelector('model.selected').id;
+
+    if (chosenModel == 'knn'){
+        //      KNN PREDICTOR ____________
+        let KNN_predictionResult = knn_prediction([new_x, new_y], 10);
+        predicted_span.innerHTML = `[${new_x}, ${new_y}], 10 : <span style="color: ${colors[Classes.indexOf(KNN_predictionResult[0])]}">${KNN_predictionResult.toString()}</span>`;
+        document.querySelector('pointerlocation').style.top = ev.clientY + 'px';
+        document.querySelector('pointerlocation').style.left = ev.clientX + 'px';
+        document.querySelector('pointerlocation').style.background = colors[Classes.indexOf(KNN_predictionResult[0])];
+    } else if (chosenModel == 'log') {
+        //      LOGISTIC PREDICTOR ____________
+        let Log_predictionResult = logistic_probabilities([new_x, new_y]);
+        predicted_span.innerHTML = `[${new_x}, ${new_y}] : <span style="color: ${colors[Classes.indexOf(Log_predictionResult[0])]}">${Log_predictionResult.toString()}</span>`;
+        document.querySelector('pointerlocation').style.top = ev.clientY + 'px';
+        document.querySelector('pointerlocation').style.left = ev.clientX + 'px';
+        document.querySelector('pointerlocation').style.background = colors[Classes.indexOf(Log_predictionResult[0])];
+    } else if (chosenModel == 'lda') {
+        //      LDA PREDICTOR ____________
+        let LDA_predictionResult = lda_prediction([new_x, new_y]);
+        predicted_span.innerHTML = `[${new_x}, ${new_y}] : <span style="color: ${colors[Classes.indexOf(LDA_predictionResult[0])]}">${LDA_predictionResult.toString()}</span>`;
+        document.querySelector('pointerlocation').style.top = ev.clientY + 'px';
+        document.querySelector('pointerlocation').style.left = ev.clientX + 'px';
+        document.querySelector('pointerlocation').style.background = colors[Classes.indexOf(LDA_predictionResult[0])];
+    }
+}
+
+predmode.addEventListener("change", () => {
+    if (predmode.checked) {
+        canvas.addEventListener("mousemove", hoverPredict);
+        canvas.style.cursor = "crosshair";
+    } else {
+        canvas.removeEventListener("mousemove", hoverPredict);
+        canvas.style.cursor = "default";
+    }
+});
+
+
+
+function update_matrix_latex() {
+      function MatrixtoLatex(matrix) {
+        let latex = "\\begin{pmatrix} ";
+        let rows = [];
+        for (let r of matrix) {
+          r = r.map((x) => round(x, 2));
+          rows.push(r.join(" & "));
+        }
+        latex += rows.join(" \\\\ ");
+        latex += " \\end{pmatrix}";
+        return latex;
+      }
+
+      let mat = document.querySelector("#matrix");
+      mat.innerHTML = MatrixtoLatex(coeffs);
+      MathJax.typeset();
+    }
+
+
+
+
+
+draw();
+
+
+
+
+</script>
+
+</html>

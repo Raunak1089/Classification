@@ -149,7 +149,7 @@
     </details>
 
     <models>
-      <model id="knn">KNN</model>
+      <model id="knn" ondblclick="value_of_K = Number(prompt('Enter K:'))">KNN</model>
       <model id="log">LOG</model>
       <model id="lda" onclick="lda()">LDA</model>
       <model id="qda" onclick="qda()">QDA</model>
@@ -192,6 +192,7 @@
 
       <div style="background: white;">
         <table id="colorcodes"></table>
+        <button onclick="predAllPoints()">Show all points</button>
         <input type="checkbox" name="predmode" id="predmode"><label for="predmode">Hover and predict</label>
         <span id="predicted"></span>
       </div>
@@ -277,7 +278,7 @@
         }
       }
 
-      // SUB X AXES
+      // SUB Y AXES
       for (
         let i = floor(step/2, (-1 * originx) / scale);
         i <= floor(step/2, (canvas.width.baseVal.value - originx) / scale);
@@ -305,7 +306,7 @@
         }
       }
 
-      // SUB Y AXES
+      // SUB X AXES
       for (
         let i = floor(step/2, originy / scale);
         i >= -1 * floor(step/2, (canvas.height.baseVal.value - originy) / scale);
@@ -376,10 +377,10 @@
 
     canvas.addEventListener("click", plot);
 
-    function draw_point(x, y, color = "blue", label = true, prec = 3) {
+    function draw_point(x, y, color = "blue", label = true, r=5, prec = 3) {
       let myPoint = `
       <circle cx="${scale * x + originx}" cy="${originy - scale * y}" 
-      r="5" fill="${color}" />`;
+      r="${r}" fill="${color}" />`;
 
       if (label) {
         myPoint += `<text x="${scale * x + originx + 10}" y="${
@@ -519,6 +520,8 @@ async function loadClipboardData() {
 
 
 //  KNN PREDICTION  __________________________________________________
+
+let value_of_K = 10;
 
 function knn_prediction(obs_x, K) {
     function dist(vect_x, vect_y) {
@@ -836,8 +839,8 @@ function hoverPredict(ev) {
 
     if (chosenModel == 'knn'){
         //      KNN PREDICTOR ____________
-        let KNN_predictionResult = knn_prediction([new_x, new_y], 10);
-        predicted_span.innerHTML = `[${new_x}, ${new_y}], 10 : <span style="color: ${colors[Classes.indexOf(KNN_predictionResult[0])]}">${KNN_predictionResult.toString()}</span>`;
+        let KNN_predictionResult = knn_prediction([new_x, new_y], value_of_K);
+        predicted_span.innerHTML = `[${new_x}, ${new_y}], ${value_of_K} : <span style="color: ${colors[Classes.indexOf(KNN_predictionResult[0])]}">${KNN_predictionResult.toString()}</span>`;
         document.querySelector('pointerlocation').style.top = ev.clientY + 'px';
         document.querySelector('pointerlocation').style.left = ev.clientX + 'px';
         document.querySelector('pointerlocation').style.background = colors[Classes.indexOf(KNN_predictionResult[0])];
@@ -869,11 +872,56 @@ predmode.addEventListener("change", () => {
     if (predmode.checked) {
         canvas.addEventListener("mousemove", hoverPredict);
         canvas.style.cursor = "crosshair";
+        document.querySelector('pointerlocation').style.display = '';
     } else {
         canvas.removeEventListener("mousemove", hoverPredict);
         canvas.style.cursor = "default";
+        document.querySelector('pointerlocation').style.display = 'none';
     }
 });
+
+function predAllPoints() {
+  let X_points = [];
+  let Y_points = [];
+
+  let step = Math.pow(2, Math.floor(Math.log2(100 / scale)))/2;
+
+  for(
+    let i = floor(step, (-1 * originx) / scale);
+        i <= floor(step, (canvas.width.baseVal.value - originx) / scale);
+        i += step
+  ) {X_points.push(i)}
+
+  for(
+    let i = floor(step, originy / scale);
+        i >= -1 * floor(step, (canvas.height.baseVal.value - originy) / scale);
+        i -= step
+  ) {Y_points.push(i)}
+
+
+
+
+  function draw_rect(x, y, color = "blue") {
+    let myPoint = `<rect width="${scale/2}" height="${scale/2}" 
+    x="${scale * x + originx}" y="${originy - scale * y}" style="fill:${color};fill-opacity:0.1;" />`
+    document.querySelector("#points").innerHTML += myPoint;
+  }
+
+
+  
+  let chosenModel = document.querySelector('model.selected').id;
+
+
+  for (let p of X_points) {
+    for(let q of Y_points) {
+      if (chosenModel == 'knn') draw_rect(p, q, color = colors[Classes.indexOf(knn_prediction([p, q], value_of_K)[0])]);
+      else if (chosenModel == 'log') draw_rect(p, q, color = colors[Classes.indexOf(logistic_probabilities([p, q])[0])]);
+      else if (chosenModel == 'lda') draw_rect(p, q, color = colors[Classes.indexOf(lda_prediction([p, q])[0])]);
+      else if (chosenModel == 'qda') draw_rect(p, q, color = colors[Classes.indexOf(qda_prediction([p, q])[0])]);
+    }
+  }
+
+}
 
 
 

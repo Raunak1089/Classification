@@ -208,6 +208,8 @@
 
       <svg id="points" height="500" width="500"></svg>
 
+      <svg id="pred_points" height="500" width="500"></svg>
+
       <svg id="pp" height="500" width="500"></svg>
     </svg>
 
@@ -323,6 +325,7 @@
     }
 
     function draw() {
+      document.querySelector("#pred_points").innerHTML = "";
       document.querySelector("#points").innerHTML = "";
       for (let i in X) {
         draw_point(X[i], Y[i], color = colors[Classes.indexOf(Outputs[i])], label = false);
@@ -330,20 +333,6 @@
 
 
       draw_axes();
-/*
-      let points_str = "";
-      for (
-        let x = -originx / scale;
-        x <= (canvas_width - originx) / scale;
-        x += 1 / scale
-      ) {
-        points_str += `${scale * x + originx},${originy - scale * f(x)} `;
-      }
-
-      document.querySelector("#pp").innerHTML = `<polyline
-          points="${points_str}"
-        />`;
-*/
     }
 
     function clear_all() {
@@ -424,6 +413,7 @@
         originx = ev.clientX - xv_pc;
         originy = ev.clientY - yv_pc;
         draw();
+
       }
     };
 
@@ -837,35 +827,15 @@ function hoverPredict(ev) {
 
     let chosenModel = document.querySelector('model.selected').id;
 
-    if (chosenModel == 'knn'){
-        //      KNN PREDICTOR ____________
-        let KNN_predictionResult = knn_prediction([new_x, new_y], value_of_K);
-        predicted_span.innerHTML = `[${new_x}, ${new_y}], ${value_of_K} : <span style="color: ${colors[Classes.indexOf(KNN_predictionResult[0])]}">${KNN_predictionResult.toString()}</span>`;
-        document.querySelector('pointerlocation').style.top = ev.clientY + 'px';
-        document.querySelector('pointerlocation').style.left = ev.clientX + 'px';
-        document.querySelector('pointerlocation').style.background = colors[Classes.indexOf(KNN_predictionResult[0])];
-    } else if (chosenModel == 'log') {
-        //      LOGISTIC PREDICTOR ____________
-        let Log_predictionResult = logistic_probabilities([new_x, new_y]);
-        predicted_span.innerHTML = `[${new_x}, ${new_y}] : <span style="color: ${colors[Classes.indexOf(Log_predictionResult[0])]}">${Log_predictionResult.toString()}</span>`;
-        document.querySelector('pointerlocation').style.top = ev.clientY + 'px';
-        document.querySelector('pointerlocation').style.left = ev.clientX + 'px';
-        document.querySelector('pointerlocation').style.background = colors[Classes.indexOf(Log_predictionResult[0])];
-    } else if (chosenModel == 'lda') {
-        //      LDA PREDICTOR ____________
-        let LDA_predictionResult = lda_prediction([new_x, new_y]);
-        predicted_span.innerHTML = `[${new_x}, ${new_y}] : <span style="color: ${colors[Classes.indexOf(LDA_predictionResult[0])]}">${LDA_predictionResult.toString()}</span>`;
-        document.querySelector('pointerlocation').style.top = ev.clientY + 'px';
-        document.querySelector('pointerlocation').style.left = ev.clientX + 'px';
-        document.querySelector('pointerlocation').style.background = colors[Classes.indexOf(LDA_predictionResult[0])];
-    } else if (chosenModel == 'qda') {
-        //      QDA PREDICTOR ____________
-        let QDA_predictionResult = qda_prediction([new_x, new_y]);
-        predicted_span.innerHTML = `[${new_x}, ${new_y}] : <span style="color: ${colors[Classes.indexOf(QDA_predictionResult[0])]}">${QDA_predictionResult.toString()}</span>`;
-        document.querySelector('pointerlocation').style.top = ev.clientY + 'px';
-        document.querySelector('pointerlocation').style.left = ev.clientX + 'px';
-        document.querySelector('pointerlocation').style.background = colors[Classes.indexOf(QDA_predictionResult[0])];
-    }
+    let predictionResult =  (chosenModel == 'knn') ? knn_prediction([new_x, new_y], value_of_K) : 
+                            (chosenModel == 'log') ? logistic_probabilities([new_x, new_y]) :
+                            (chosenModel == 'lda') ? lda_prediction([new_x, new_y]) :
+                            (chosenModel == 'qda') ? qda_prediction([new_x, new_y]) : undefined;
+
+    predicted_span.innerHTML = `[${new_x}, ${new_y}], ${value_of_K} : <span style="color: ${colors[Classes.indexOf(predictionResult[0])]}">${predictionResult.toString()}</span>`;
+    document.querySelector('pointerlocation').style.top = ev.clientY + 'px';
+    document.querySelector('pointerlocation').style.left = ev.clientX + 'px';
+    document.querySelector('pointerlocation').style.background = colors[Classes.indexOf(predictionResult[0])];
 }
 
 predmode.addEventListener("change", () => {
@@ -880,46 +850,33 @@ predmode.addEventListener("change", () => {
     }
 });
 
+
+
 function predAllPoints() {
-  let X_points = [];
-  let Y_points = [];
-
   let step = Math.pow(2, Math.floor(Math.log2(100 / scale)))/2;
-
-  for(
-    let i = floor(step, (-1 * originx) / scale);
-        i <= floor(step, (canvas.width.baseVal.value - originx) / scale);
-        i += step
-  ) {X_points.push(i)}
-
-  for(
-    let i = floor(step, originy / scale);
-        i >= -1 * floor(step, (canvas.height.baseVal.value - originy) / scale);
-        i -= step
-  ) {Y_points.push(i)}
-
-
-
-
-  function draw_rect(x, y, color = "blue") {
-    let myPoint = `<rect width="${scale/2}" height="${scale/2}" 
-    x="${scale * x + originx}" y="${originy - scale * y}" style="fill:${color};fill-opacity:0.1;" />`
-    document.querySelector("#points").innerHTML += myPoint;
-  }
-
-
-  
+ 
   let chosenModel = document.querySelector('model.selected').id;
 
+  let all_rects = ''
 
-  for (let p of X_points) {
-    for(let q of Y_points) {
-      if (chosenModel == 'knn') draw_rect(p, q, color = colors[Classes.indexOf(knn_prediction([p, q], value_of_K)[0])]);
-      else if (chosenModel == 'log') draw_rect(p, q, color = colors[Classes.indexOf(logistic_probabilities([p, q])[0])]);
-      else if (chosenModel == 'lda') draw_rect(p, q, color = colors[Classes.indexOf(lda_prediction([p, q])[0])]);
-      else if (chosenModel == 'qda') draw_rect(p, q, color = colors[Classes.indexOf(qda_prediction([p, q])[0])]);
+  for (let p = floor(step, (-1 * originx) / scale);
+      p <= floor(step, (canvas.width.baseVal.value - originx) / scale);
+      p += step) {
+    for(let q = floor(step, originy / scale);
+        q >= -1 * floor(step, (canvas.height.baseVal.value - originy) / scale);
+        q -= step) {
+          let predictionResult =  (chosenModel == 'knn') ? knn_prediction([p, q], value_of_K) : 
+                                  (chosenModel == 'log') ? logistic_probabilities([p, q]) :
+                                  (chosenModel == 'lda') ? lda_prediction([p, q]) :
+                                  (chosenModel == 'qda') ? qda_prediction([p, q]) : undefined;
+
+          all_rects += `<rect width="${scale * step * 2}" height="${scale * step * 2}" 
+          x="${scale * p + originx - scale * step}" y="${originy - scale * q - scale * step}" style="fill:${colors[Classes.indexOf(predictionResult[0])]};fill-opacity:0.1;" />`
+
     }
   }
+  
+    document.querySelector("#pred_points").innerHTML = all_rects;
 
 }
 

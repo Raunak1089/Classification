@@ -151,6 +151,7 @@
     <models>
       <model id="knn" ondblclick="value_of_K = Number(prompt('Enter K:'))">KNN</model>
       <model id="log">LOG</model>
+      <model id="fda" onclick="fda()">FDA</model>
       <model id="lda" onclick="lda()">LDA</model>
       <model id="qda" onclick="qda()">QDA</model>
     </models>
@@ -170,6 +171,9 @@
         </button>
         <button onclick="clear_all()" title="CLEAR">
           <i class="fa-solid fa-stop"></i>
+        </button>
+        <button onclick="scale_loaded_data()" title="SCALE LOADED DATA">
+          <i class="fa-duotone fa-regular fa-arrows-to-circle"></i>
         </button>
         <button onclick="loadClipboardData()" title="LOAD CLIPBOARD DATA">
           <i class="fa-regular fa-clipboard"></i>
@@ -509,6 +513,16 @@ async function loadClipboardData() {
 }
 
 
+function scale_loaded_data() {
+  let data = Matrix.transpose([X,Y]);
+  let scaled_data = NDM.scale(data);
+  let scaled_data_tr = Matrix.transpose(scaled_data);
+  X = scaled_data_tr[0];
+  Y = scaled_data_tr[1];
+  draw();
+}
+
+
 //  KNN PREDICTION  __________________________________________________
 
 let value_of_K = 10;
@@ -677,6 +691,49 @@ function logistic_probabilities(x) {
 
 let mu_s; let S; let n_k; let pi_s; let S_inv;
 
+// function lda() {
+//   mu_s = []; n_k = [];
+//   for (let i in Classes) {
+//     mu_s.push([0, 0]);
+//     n_k.push(0);
+//   }
+
+//   for (let i in X) {
+//     for (let j in Classes) {
+//       if (Outputs[i] == Classes[j]) {
+//         mu_s[j][0] += X[i];
+//         mu_s[j][1] += Y[i];
+//         n_k[j]++;
+//       }
+//     }
+//   }
+//   mu_s = mu_s.map((mu, ind) => mu.map(total => total/n_k[ind]));
+//   pi_s = n_k.map(nk => nk/X.length);
+
+//   S = [[0,0], [0,0]];
+//   for (let k in Classes) {
+//     for (let i in X) {
+//       if (Outputs[i] == Classes[k]) {
+//         S = Matrix.add_matrices(S, Matrix.multiply_matrices(Matrix.transpose([[X[i] - mu_s[k][0], Y[i] - mu_s[k][1]]]), [[X[i] - mu_s[k][0], Y[i] - mu_s[k][1]]]));
+//       }
+//     }
+//   }
+
+//   S = S.map(r => r.map(c => c/(X.length - Classes.length)));
+
+//   S_inv = Matrix.inverse(S);
+
+// }
+
+// function delta(k, x) {
+//   let xT  = [x];
+//   let u = Matrix.multiply_matrices(xT, S_inv, Matrix.transpose([mu_s[k]]));
+//   let v = Matrix.multiply_matrices([mu_s[k]], S_inv, Matrix.transpose([mu_s[k]]));
+//   let w = Math.log(pi_s[k]);
+//   return u[0][0] - v[0][0]/2 + w;
+// }
+
+
 function lda() {
   mu_s = []; n_k = [];
   for (let i in Classes) {
@@ -696,28 +753,21 @@ function lda() {
   mu_s = mu_s.map((mu, ind) => mu.map(total => total/n_k[ind]));
   pi_s = n_k.map(nk => nk/X.length);
 
-  S = [[0,0], [0,0]];
-  for (let k in Classes) {
-    for (let i in X) {
-      if (Outputs[i] == Classes[k]) {
-        S = Matrix.add_matrices(S, Matrix.multiply_matrices(Matrix.transpose([[X[i] - mu_s[k][0], Y[i] - mu_s[k][1]]]), [[X[i] - mu_s[k][0], Y[i] - mu_s[k][1]]]));
-      }
-    }
-  }
-
-  S = S.map(r => r.map(c => c/(X.length - Classes.length)));
-
+  S = NDM.covariance(Matrix.transpose([X, Y]));
   S_inv = Matrix.inverse(S);
-
 }
 
 
 function delta(k, x) {
-  let xT  = [x];
-  let u = Matrix.multiply_matrices(Matrix.multiply_matrices(xT, S_inv), Matrix.transpose([mu_s[k]]));
-  let v = Matrix.multiply_matrices(Matrix.multiply_matrices([mu_s[k]], S_inv), Matrix.transpose([mu_s[k]]));
-  let w = Math.log(pi_s[k]);
-  return u[0][0] - v[0][0]/2 + w;
+  let dT  = [Vector.subtract(x, mu_s[k])];
+  let u = Matrix.multiply_matrices(dT, S_inv, Matrix.transpose(dT));
+  return -1 * u[0][0];
+}
+
+function log_likelihood(k, x) {
+  let dT  = [Vector.subtract(x, mu_s[k])];
+  let u = Matrix.multiply_matrices(dT, S_inv, Matrix.transpose(dT));
+  return -0.5 * u[0][0] - 0.5*Math.log(Matrix.det(S));
 }
 
 function lda_prediction(x) {
@@ -725,6 +775,7 @@ function lda_prediction(x) {
   for (let i in Classes) {
     dels.push(delta(i, x));
   }
+  console.log(dels);
   let m = Math.max(...dels);
   let pred_y;
   for (let i in dels) {
@@ -736,7 +787,7 @@ function lda_prediction(x) {
 
 
 
-//  LINEAR DISCRIMINANT ANALYSIS  --------------------------------------------
+//  QUADRATIC DISCRIMINANT ANALYSIS  --------------------------------------------
 
 let S_s; let S_inv_s;
 
@@ -761,18 +812,14 @@ function qda() {
 
   S_s = [];
   for (let k in Classes) {
-    S = [[0,0], [0,0]];
+    let data_mat = [];
     for (let i in X) {
       if (Outputs[i] == Classes[k]) {
-        //  (xi - mu) . (xi - mu)'  , (2x1) column vectors are subttracted here
-        S = Matrix.add_matrices(S, Matrix.multiply_matrices(Matrix.transpose([[X[i] - mu_s[k][0], Y[i] - mu_s[k][1]]]), [[X[i] - mu_s[k][0], Y[i] - mu_s[k][1]]]));
+        data_mat.push([X[i], Y[i]]);
       }
     }
-    S = S.map(r => r.map(c => c/(n_k[k] - 1)));
-    S_s.push(S);
+    S_s.push(NDM.covariance(data_mat));
   }
-    
-
 
   S_inv_s = S_s.map(mat => Matrix.inverse(mat));
 
@@ -780,11 +827,10 @@ function qda() {
 
 
 function delta_qda(k, x) {
-  let xT  = [x];
-  let u = Matrix.multiply_matrices(Matrix.multiply_matrices(xT, S_inv_s[k]), Matrix.transpose([mu_s[k]]));
-  let v = Matrix.multiply_matrices(Matrix.multiply_matrices([mu_s[k]], S_inv_s[k]), Matrix.transpose([mu_s[k]]));
-  let w = Math.log(pi_s[k]);
-  return u[0][0] - v[0][0]/2 + w;
+  let dT  = [Vector.subtract(x, mu_s[k])];
+  let u = Matrix.multiply_matrices(dT, S_inv_s[k], Matrix.transpose(dT));
+  let l = Math.log(Matrix.det(S_inv_s[k]));
+  return -1 * (u[0][0] + l);
 }
 
 function qda_prediction(x) {
@@ -799,6 +845,73 @@ function qda_prediction(x) {
   }
   return pred_y;
 }
+
+
+
+//  FISHER DISCRIMINANT ANALYSIS  --------------------------------------------
+
+let data_matrices = []; let fd1 = []; let fd2 = [];
+function fda() {
+  mu_s = []; n_k = []; data_matrices = []; fd1 = []; fd2 = [];
+  for (let i in Classes) {
+    mu_s.push([0, 0]);
+    n_k.push(0);
+    data_matrices.push([]);
+  }
+
+  for (let i in Classes) {
+    for (let j in X) {
+      if (Outputs[j] == Classes[i]) {
+        mu_s[i][0] += X[j];
+        mu_s[i][1] += Y[j];
+        data_matrices[i].push([X[j], Y[j]]);
+        n_k[i]++;
+      }
+    }
+  }
+  mu_s = mu_s.map((mu, ind) => mu.map(total => total/n_k[ind]));
+  pi_s = n_k.map(nk => nk/X.length);
+
+  let B = Matrix.times_const(NDM.covariance(mu_s), Classes.length);
+  let W = Matrix.times_const(NDM.covariance(data_matrices[0]), n_k[0]);
+  for (let i = 1; i < Classes.length; i++) {
+    W = Matrix.add_matrices(W, Matrix.times_const(NDM.covariance(data_matrices[i]), n_k[i]));
+  }
+
+  let WinvB = Matrix.multiply_matrices(Matrix.inverse(W), B);
+
+  let evals = Matrix.eigenvalues(WinvB);
+  let ev1 = Matrix.eigenvector(WinvB, evals[0]);
+  let ev2 = Matrix.eigenvector(WinvB, evals[1]);
+
+  for (let i in X){
+      fd1.push(Vector.dot_prod(ev1, [X[i], Y[i]]));
+  }
+
+  for (let i in X){
+      fd2.push(Vector.dot_prod(ev2, [X[i], Y[i]]));
+  }
+
+}
+
+
+function dist(k, x) {
+  return (mu_s[k][0] - x[0]) ** 2 + (mu_s[k][1] - x[1]) ** 2;
+}
+
+function fda_prediction(x) {
+  let dists = [];
+  for (let i in Classes) {
+    dists.push(dist(i, x));
+  }
+  let m = Math.min(...dists);
+  let pred_y;
+  for (let i in dists) {
+    if (dists[i] == m) pred_y = [Classes[i], m];
+  }
+  return pred_y;
+}
+
 
 
 
@@ -829,6 +942,7 @@ function hoverPredict(ev) {
 
     let predictionResult =  (chosenModel == 'knn') ? knn_prediction([new_x, new_y], value_of_K) : 
                             (chosenModel == 'log') ? logistic_probabilities([new_x, new_y]) :
+                            (chosenModel == 'fda') ? fda_prediction([new_x, new_y]) :
                             (chosenModel == 'lda') ? lda_prediction([new_x, new_y]) :
                             (chosenModel == 'qda') ? qda_prediction([new_x, new_y]) : undefined;
 
@@ -867,6 +981,7 @@ function predAllPoints() {
         q -= step) {
           let predictionResult =  (chosenModel == 'knn') ? knn_prediction([p, q], value_of_K) : 
                                   (chosenModel == 'log') ? logistic_probabilities([p, q]) :
+                                  (chosenModel == 'fda') ? fda_prediction([p, q]) :
                                   (chosenModel == 'lda') ? lda_prediction([p, q]) :
                                   (chosenModel == 'qda') ? qda_prediction([p, q]) : undefined;
 

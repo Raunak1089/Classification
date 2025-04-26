@@ -691,49 +691,6 @@ function logistic_probabilities(x) {
 
 let mu_s; let S; let n_k; let pi_s; let S_inv;
 
-// function lda() {
-//   mu_s = []; n_k = [];
-//   for (let i in Classes) {
-//     mu_s.push([0, 0]);
-//     n_k.push(0);
-//   }
-
-//   for (let i in X) {
-//     for (let j in Classes) {
-//       if (Outputs[i] == Classes[j]) {
-//         mu_s[j][0] += X[i];
-//         mu_s[j][1] += Y[i];
-//         n_k[j]++;
-//       }
-//     }
-//   }
-//   mu_s = mu_s.map((mu, ind) => mu.map(total => total/n_k[ind]));
-//   pi_s = n_k.map(nk => nk/X.length);
-
-//   S = [[0,0], [0,0]];
-//   for (let k in Classes) {
-//     for (let i in X) {
-//       if (Outputs[i] == Classes[k]) {
-//         S = Matrix.add_matrices(S, Matrix.multiply_matrices(Matrix.transpose([[X[i] - mu_s[k][0], Y[i] - mu_s[k][1]]]), [[X[i] - mu_s[k][0], Y[i] - mu_s[k][1]]]));
-//       }
-//     }
-//   }
-
-//   S = S.map(r => r.map(c => c/(X.length - Classes.length)));
-
-//   S_inv = Matrix.inverse(S);
-
-// }
-
-// function delta(k, x) {
-//   let xT  = [x];
-//   let u = Matrix.multiply_matrices(xT, S_inv, Matrix.transpose([mu_s[k]]));
-//   let v = Matrix.multiply_matrices([mu_s[k]], S_inv, Matrix.transpose([mu_s[k]]));
-//   let w = Math.log(pi_s[k]);
-//   return u[0][0] - v[0][0]/2 + w;
-// }
-
-
 function lda() {
   mu_s = []; n_k = [];
   for (let i in Classes) {
@@ -753,7 +710,23 @@ function lda() {
   mu_s = mu_s.map((mu, ind) => mu.map(total => total/n_k[ind]));
   pi_s = n_k.map(nk => nk/X.length);
 
-  S = NDM.covariance(Matrix.transpose([X, Y]));
+  S_s = [];
+  for (let k in Classes) {
+    let data_mat = [];
+    for (let i in X) {
+      if (Outputs[i] == Classes[k]) {
+        data_mat.push([X[i], Y[i]]);
+      }
+    }
+    S_s.push(NDM.covariance(data_mat));
+  }
+
+  S = Matrix.times_const(S_s[0], n_k[0]-1);
+  for (let k = 1; k < Classes.length; k++) {
+    S = Matrix.add_matrices(S, Matrix.times_const(S_s[k], n_k[k]-1));
+  }
+
+  S = Matrix.times_const(S, 1 / (X.length - Classes.length));
   S_inv = Matrix.inverse(S);
 }
 
@@ -761,21 +734,15 @@ function lda() {
 function delta(k, x) {
   let dT  = [Vector.subtract(x, mu_s[k])];
   let u = Matrix.multiply_matrices(dT, S_inv, Matrix.transpose(dT));
-  return -1 * u[0][0];
+  return -1 * u[0][0] * pi_s[k];
 }
 
-function log_likelihood(k, x) {
-  let dT  = [Vector.subtract(x, mu_s[k])];
-  let u = Matrix.multiply_matrices(dT, S_inv, Matrix.transpose(dT));
-  return -0.5 * u[0][0] - 0.5*Math.log(Matrix.det(S));
-}
 
 function lda_prediction(x) {
   let dels = [];
   for (let i in Classes) {
     dels.push(delta(i, x));
   }
-  console.log(dels);
   let m = Math.max(...dels);
   let pred_y;
   for (let i in dels) {
